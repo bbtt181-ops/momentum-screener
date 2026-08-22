@@ -1,2 +1,213 @@
-# momentum-screener
-Momentum First-Leg Breakout Stock Screener
+# Momentum First-Leg Breakout Screener
+
+A **stock screener only** (no backtester, no automated trading) that looks for:
+
+```
+Fresh New Trend → First Leg → EMA Expansion → First Valid Consolidation → Breakout
+```
+
+See `Methodology` tab inside the app (or `methodology.md` if you received it separately) for exactly how
+First Leg, First Valid Consolidation, VCP, CML, Resistance, Breakout, Ideal Entry and Recommended Stop are
+defined — every threshold is configurable from the sidebar, nothing is hard-coded.
+
+## Setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+## Run the dashboard
+
+```bash
+streamlit run app.py
+```
+
+This opens the dashboard in your browser (usually http://localhost:8501). In the sidebar:
+
+1. Pick a **Data Provider** (`yfinance` is free and works out of the box; `eodhd` needs an API key,
+   see below).
+2. Set your universe filters (price, market cap, avg volume) and any pattern thresholds you want to change.
+3. Choose a ticker source: the bundled seed list, a pasted list, or a CSV upload.
+4. Click **SCAN**.
+5. Click any row in the results table to open the Stock Detail panel, chart, and WHY explanation.
+
+## Data providers
+
+- **yfinance** (default): free, unofficial (scrapes Yahoo Finance). Good for trying the screener out.
+  It can be rate-limited if you scan a very large universe repeatedly in a short time.
+- **EODHD**: recommended once you're scanning regularly. Sign up at https://eodhd.com, grab an API key,
+  and either paste it into the sidebar or set it as an environment variable:
+
+  ```bash
+  export EODHD_API_KEY=your_key_here
+  ```
+
+Switching providers is a one-line change in the sidebar (`data_provider`) — no code edits needed.
+
+## Universe
+
+The bundled `data/default_universe.csv` is a **seed list** of ~240 liquid, well-known US tickers across
+sectors — it is explicitly *not* a claim of full market coverage (building a true "every US stock over
+$300M market cap" universe requires a paid listings feed). Replace it with your own list (paste or CSV)
+at any time, or point `data/universe.py` at a full listings pull from your EODHD/other provider once you
+have one.
+
+## Email alerts
+
+The app can email you after a SCAN if any result's grade matches ones you pick (default: A+ and A). It
+uses Gmail's SMTP with an **App Password** (not your normal Gmail password) -- credentials are read only
+from Streamlit secrets, never typed into the app itself, so they're never visible in the UI or committed
+to GitHub.
+
+**1. Create a Gmail App Password** (needs 2-Step Verification turned on for your Google account first):
+   - Go to https://myaccount.google.com/apppasswords
+   - Create a new app password (name it anything, e.g. "momentum-screener")
+   - Copy the 16-character password it gives you
+
+**2. Add secrets:**
+   - **Local run**: create a file `.streamlit/secrets.toml` in the project folder (this file is already
+     git-ignored, so it never gets uploaded to GitHub) with:
+     ```toml
+     [email]
+     sender_address = "youraccount@gmail.com"
+     app_password = "xxxx xxxx xxxx xxxx"
+     recipient_address = "where-alerts-should-go@example.com"
+     ```
+   - **Streamlit Community Cloud**: open your deployed app -> Settings -> Secrets, paste the same TOML
+     block, and save. The app picks it up automatically, no redeploy needed.
+
+**3. In the sidebar**, open "Email alerts", check "Email me after SCAN if a matching grade is found", and
+pick which grades should trigger an email. One email is sent per SCAN (not per ticker), listing every
+matching ticker with its grade, score, status, ideal entry and stop.
+
+If secrets aren't configured yet, the sidebar shows a warning instead of failing silently.
+
+## Daily automatic scan (Windows Task Scheduler)
+
+This runs the full scan **once a day at a fixed local time on your own PC** -- no GitHub, no cloud
+automation. It uses `daily_scan.py`, a standalone version of the scan that doesn't need Streamlit
+running, and emails you (using the same email-alert logic as the dashboard) if any result grades A+ or A
+(configurable).
+
+**1. Create your credentials file:**
+   - Copy `.env.example` to a new file named `.env` in the project folder (same folder as `daily_scan.py`).
+   - Fill in the same three values used for the dashboard's email alerts (see "Email alerts" above for
+     how to create a Gmail App Password):
+     ```
+     GMAIL_SENDER_ADDRESS=youraccount@gmail.com
+     GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+     ALERT_RECIPIENT_ADDRESS=where-alerts-should-go@example.com
+     ```
+   - `.env` is already git-ignored, so it's never uploaded anywhere.
+
+**2. Test it manually first** (from the project folder, with the venv active):
+   ```bash
+   .venv\Scripts\activate
+   python daily_scan.py
+   ```
+   This scans the full seed universe once and prints progress. Check `daily_scan.log` (created next to the
+   script) for a run history. If no A+/A setup is found that day, it logs that and exits without emailing --
+   that's expected, not a failure.
+
+**3. Register the Windows Scheduled Task** so it runs automatically every day at 23:20 (11:20 PM) local
+   time -- open **Command Prompt** (not PowerShell) and run, adjusting the paths only if your project
+   folder isn't `C:\Users\PC\Desktop\momentum-screener`:
+   ```bat
+   schtasks /create /tn "MomentumScreenerDailyScan" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\daily_scan.py\"" /sc DAILY /st 23:20
+   ```
+   Because this uses your PC's **local time and timezone directly**, there's no UTC/DST conversion to get
+   wrong -- 23:20 always means 23:20 on your clock, summer or winter.
+
+   Your computer needs to be **on and awake** at 23:20 for the task to run (it won't fire while asleep or
+   shut down; Windows will *not* automatically run it late, though you can enable "Run task as soon as
+   possible after a scheduled start is missed" in Task Scheduler's task properties if you want a fallback).
+
+**4. Manage the task** any time via the Task Scheduler GUI (search "Task Scheduler" in the Start menu ->
+   find "MomentumScreenerDailyScan" in the Task Scheduler Library), or from Command Prompt:
+   ```bat
+   schtasks /run /tn "MomentumScreenerDailyScan"      REM run it right now, to test
+   schtasks /query /tn "MomentumScreenerDailyScan"    REM check its status/last run result
+   schtasks /delete /tn "MomentumScreenerDailyScan"   REM remove it entirely
+   ```
+
+## Report to Adam
+
+If you run the "Adam" supervisor system (adam-brain.gs, discord-agent-gas, etc.), `daily_scan.py` can log
+each run to your shared **"ADAM Performance Log"** Google Sheet after it finishes -- so Adam has visibility
+into whether the scanner ran today and whether the alert email was sent, using the same
+`date, run_type, agent, ...` row format your other agents already write. The scan itself keeps running
+locally on this PC exactly as set up above -- this only reports the result, it doesn't move execution to
+the cloud.
+
+This needs a one-time Google Cloud service-account setup, since a local Python script can't use your normal
+Google login to write to a Sheet:
+
+**1. Create a service account and key:**
+   - Go to https://console.cloud.google.com/ and create a project (or pick an existing one).
+   - Enable the **Google Sheets API** for that project (APIs & Services -> Enable APIs -> search "Google
+     Sheets API" -> Enable).
+   - Go to IAM & Admin -> Service Accounts -> Create Service Account (any name, e.g.
+     "momentum-screener-adam-logger"). No roles needed at the project level.
+   - Open the new service account -> Keys -> Add Key -> Create new key -> JSON. This downloads a `.json`
+     file -- **treat it like a password**, it grants write access to whatever you share with it.
+
+**2. Install the key and share the sheet:**
+   - Rename the downloaded file to `adam-service-account.json` and place it in the project folder (already
+     git-ignored, so it never gets committed).
+   - Open the JSON file and copy the `client_email` value (looks like
+     `something@your-project.iam.gserviceaccount.com`).
+   - Open the "ADAM Performance Log" sheet in your browser -> Share -> paste that email address -> give it
+     **Editor** access.
+
+**3. That's it** -- the next `python daily_scan.py` run (manual or scheduled) will append one row automatically.
+If the JSON file isn't there yet, this step quietly no-ops (logged in `daily_scan.log` as "Adam log
+skipped/failed"), it never blocks the actual scan or your alert email.
+
+## Live IBD50 ticker list
+
+`daily_scan.py` also adds every ticker currently in the **"ibd50"** tab (column A) of your "סוחר עלPRO"
+Google Sheet to the seed universe before each scan -- pulled fresh at scan time, not a one-time paste. Since
+that tab updates about once a week, this means each day's scan automatically picks up whatever the sheet
+currently has, with no manual re-copying.
+
+This reuses the **same service account** from "Report to Adam" above -- if you've already done that setup,
+there's only one more step:
+
+- Open the "סוחר עלPRO" sheet -> Share -> paste the same service account email (from the JSON file's
+  `client_email`) -> **Viewer** access is enough (read-only).
+
+If the service account isn't set up yet, or isn't shared on this sheet, or the "ibd50" tab isn't found, the
+scan just falls back to the seed list alone (logged in `daily_scan.log`, never blocks the scan).
+
+## Running the smoke test (no network required)
+
+```bash
+python -m tests.test_pipeline
+```
+
+This runs the full pipeline (indicators → First Leg → Consolidation → VCP → Resistance → Breakout →
+Entry/Stop → Setup Score) against a synthetic, engineered OHLCV series that deliberately contains a First
+Leg, a valid consolidation with a Higher Low, and a breakout day — useful for confirming the code still
+works after you tune a threshold, without needing live data access.
+
+## Project layout
+
+```
+config.py            Every configurable parameter (dataclass) -- nothing hard-coded elsewhere
+data/                 Providers (yfinance, EODHD), SQLite cache, universe filtering
+indicators/core.py    EMA, ATR, ADR, linreg slope/R2, CLV, candle overlap, directional efficiency, etc.
+patterns/             First Leg, EMA Expansion, CML proxy, Consolidation/Higher Low, VCP, Resistance, Breakout, Volume
+scoring/               Ideal Entry, Recommended Stop, Status, Setup Score/Entry Quality, WHY explanations
+scanner.py            Orchestrates the full per-ticker pipeline + universe scan
+app.py                Streamlit dashboard
+tests/                 Synthetic-data smoke test (no network needed)
+```
+
+## Known limitations (see spec section 30)
+
+First Leg, First Valid Consolidation, VCP, CML, Higher Low, and "relevant" Resistance are not
+unambiguous concepts. Every score here is a transparent, configurable approximation — read the
+Methodology tab before trusting the output, and treat A+/A grades as a shortlist to review, not a
+guarantee.
