@@ -18,14 +18,17 @@ takes sender/password/recipient as plain arguments so this module has no
 opinion about where they came from, and no credential ever gets logged or
 embedded in a committed file.
 
-The email includes one background image (embedded inline via Content-ID,
-not hot-linked -- so it always renders regardless of whether the GitHub
-repo is public/private and without depending on any external image host
-staying online). The image is freshly generated for every single send by
-imagegen.py (randomized gradient + growth motif) -- an effectively
-infinite pool rather than a fixed set of files -- plus a random Hebrew
-motivational line. Neither depends on the internet, so a scheduled run
-never depends on a third-party image service being up.
+The email includes one header image (embedded inline via Content-ID, not
+hot-linked -- so it still renders correctly regardless of whether the
+GitHub repo is public/private, and the image itself doesn't depend on any
+external host staying online AFTER the email is sent). The image is a
+freshly generated quote card for every single send, built by imagegen.py:
+a real random photo (fetched live, a different one every time) with a
+random Hebrew motivational line rendered on top of it. Fetching that photo
+does need internet access AT SEND TIME (unlike the module's previous
+purely-local design) -- if it fails for any reason, imagegen.py falls back
+to its own local gradient generator instead, so a flaky network only ever
+makes the image plainer, never blocks the email.
 """
 
 from __future__ import annotations
@@ -296,7 +299,7 @@ def send_grade_alert_email(sender: str, password: str, recipient: str,
 
     quote = random.choice(MOTIVATIONAL_QUOTES)
     try:
-        image_bytes = imagegen.generate_image_bytes()
+        image_bytes = imagegen.generate_image_bytes(quote)
     except Exception:  # noqa: BLE001 - a broken image generator should never block the alert email
         image_bytes = None
     image_cid = "header_image" if image_bytes else None

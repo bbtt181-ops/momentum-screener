@@ -101,6 +101,15 @@ setup on the day it already broke out. A non-empty Watchlist is, on its own, eno
 even if the same SCAN found zero A+/A results. The same READY setups are also listed in full in the
 dashboard's **Watchlist (READY)** tab.
 
+**Header image**: every email includes a quote-card header -- a real, different photo every time (fetched
+live from [Lorem Picsum](https://picsum.photos), free, no API key, backed by Unsplash's library, so it can
+be any subject anywhere in the world) with that send's Hebrew motivational line rendered on top in
+[Noto Sans Hebrew](https://fonts.google.com/noto/specimen/Noto+Sans+Hebrew) (bundled under
+`assets/fonts/`, SIL Open Font License -- see `assets/fonts/OFL.txt`). Fetching the photo needs internet
+access at send time; if that fails for any reason (offline, blocked, slow, non-200 response) it falls back
+to the original procedural gradient background instead (`imagegen.py`'s `_procedural_background()`), so a
+flaky network only ever makes that one email's image plainer, never blocks the send.
+
 ## Daily automatic scan (Windows Task Scheduler)
 
 This runs the full scan **once a day at a fixed local time on your own PC** -- no GitHub, no cloud
