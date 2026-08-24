@@ -21,14 +21,13 @@ embedded in a committed file.
 The email includes one header image (embedded inline via Content-ID, not
 hot-linked -- so it still renders correctly regardless of whether the
 GitHub repo is public/private, and the image itself doesn't depend on any
-external host staying online AFTER the email is sent). The image is a
-freshly generated quote card for every single send, built by imagegen.py:
-a real random photo (fetched live, a different one every time) with a
-random Hebrew motivational line rendered on top of it. Fetching that photo
-does need internet access AT SEND TIME (unlike the module's previous
-purely-local design) -- if it fails for any reason, imagegen.py falls back
-to its own local gradient generator instead, so a flaky network only ever
-makes the image plainer, never blocks the email.
+external host staying online AFTER the email is sent). The image is a real
+random photo, fetched live by imagegen.py on every send (falling back to a
+local procedural gradient if the fetch fails for any reason). The quote
+itself is NOT drawn onto the image -- it's plain HTML text right below it
+(see build_html_email) -- so a photo-fetch hiccup never takes the quote
+down with it, and there's no Hebrew-font/text-rendering step inside the
+image pipeline to go wrong.
 """
 
 from __future__ import annotations
@@ -44,17 +43,32 @@ import imagegen
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 
+# A broad pool of short, well-known empowering quotes -- deliberately not
+# limited to trading/markets, spanning different eras, cultures and fields
+# (science, business, civil rights, art, philosophy, sport, proverbs) per
+# the user's request for variety. Kept short (one sentence) and attributed,
+# in the same style as the reference "Adam" system email.
 MOTIVATIONAL_QUOTES = [
-    "המשמעת שלך היום היא התוצאה שלך מחר.",
-    "לא כל יום צריך להיות פריצה -- גם יום של סבלנות הוא יום מוצלח.",
-    "הסטופ הוא לא כישלון, הוא המחיר של להישאר במשחק.",
-    "מגמה טובה נבנית לאט -- תן לה מקום לנשום.",
-    "הקונסיסטנטיות מנצחת את ההתלהבות, כל פעם מחדש.",
-    "הכי חשוב זה לא לצדוק -- הכי חשוב זה לנהל סיכון נכון.",
-    "כל Setup טוב מתחיל בסבלנות, לא בלחץ להיכנס.",
-    "השוק תמיד יהיה כאן מחר -- אין צורך לרדוף אחרי כל תנועה.",
-    "תן לתהליך לעבוד -- התוצאות מגיעות למי שממשיך להופיע.",
-    "המטרה היא לא לתפוס כל פריצה, אלא לתפוס את הפריצות הנכונות.",
+    "בעיצומו של קושי טמונה הזדמנות. — אלברט איינשטיין",
+    "הדרך היחידה לעשות עבודה נהדרת היא לאהוב את מה שאתה עושה. — סטיב ג'ובס",
+    "תמיד נראה בלתי אפשרי עד שזה נעשה. — נלסון מנדלה",
+    "הדרך להתחיל היא להפסיק לדבר ולהתחיל לעשות. — וולט דיסני",
+    "לא נכשלתי. פשוט מצאתי 10,000 דרכים שלא עובדות. — תומאס אדיסון",
+    "הדבר היחיד שיש לפחד ממנו הוא הפחד עצמו. — פרנקלין ד. רוזוולט",
+    "האושר שלך תלוי באיכות המחשבות שלך. — מרקוס אורליוס",
+    "נפלת שבע פעמים? קום שמונה. — פתגם יפני",
+    "מסע של אלף מילין מתחיל בצעד אחד. — לאו דזה",
+    "תן לי שש שעות לכרות עץ, ואבלה ארבע מהן בחידוד הגרזן. — אברהם לינקולן",
+    "היופי הגדול ביותר שלנו הוא לא שמעולם לא נופלים, אלא שאנחנו קמים בכל פעם שאנחנו נופלים. — קונפוציוס",
+    "אף אחד לא יכול לחזור ולהתחיל מחדש, אבל כל אחד יכול להתחיל היום וליצור סוף חדש. — הלן קלר",
+    "את לא יכולה לשלוט בכל מה שקורה לך, אבל את יכולה להחליט לא להיכנע לזה. — מאיה אנג'לו",
+    "הצלחה היא ללכת מכישלון לכישלון בלי לאבד את ההתלהבות. — וינסטון צ'רצ'יל",
+    "בחיים אין דבר שצריך לפחד ממנו, יש רק דברים שצריך להבין. — מארי קירי",
+    "אל תפחד מהכישלון. פחד מלא לנסות. — ברוס לי",
+    "היה השינוי שאתה רוצה לראות בעולם. — מהטמה גנדי",
+    "אנחנו מה שאנחנו עושים שוב ושוב. מצוינות, אם כן, היא לא מעשה אלא הרגל. — אריסטו",
+    "העתיד שייך לאלה שמאמינים ביופיים של חלומותיהם. — אלינור רוזוולט",
+    "אל תתאבל. כל מה שאתה מאבד חוזר בצורה אחרת. — רומי",
 ]
 
 
@@ -290,6 +304,9 @@ def send_grade_alert_email(sender: str, password: str, recipient: str,
     on a READY hit even with zero A+/A results, same as daily_scan.py's
     scheduled run already does implicitly via scan_stats.
 
+    Subject lines stay short (no ticker list appended) -- the full ticker
+    list is always in the table/body, which is where it belongs.
+
     Returns (success, message) for display in the sidebar or scheduled-run
     logs.
     """
@@ -299,18 +316,16 @@ def send_grade_alert_email(sender: str, password: str, recipient: str,
 
     quote = random.choice(MOTIVATIONAL_QUOTES)
     try:
-        image_bytes = imagegen.generate_image_bytes(quote)
+        image_bytes = imagegen.generate_image_bytes()
     except Exception:  # noqa: BLE001 - a broken image generator should never block the alert email
         image_bytes = None
     image_cid = "header_image" if image_bytes else None
 
     msg = MIMEMultipart("related")
     if qualifying_results:
-        msg["Subject"] = f"🚀 Momentum Screener: {len(qualifying_results)} setup(s) -- " + \
-                          ", ".join(r["ticker"] for r in qualifying_results)
+        msg["Subject"] = f"🚀 Momentum Screener: {len(qualifying_results)} setup(s) found today"
     elif watchlist_results:
-        msg["Subject"] = f"📋 Momentum Screener: {len(watchlist_results)} READY setup(s) to watch -- " + \
-                          ", ".join(r["ticker"] for r in watchlist_results)
+        msg["Subject"] = f"📋 Momentum Screener: {len(watchlist_results)} READY setup(s) to watch"
     else:
         msg["Subject"] = "🔍 Momentum Screener: Daily scan complete -- no A+/A setups today"
     msg["From"] = sender
