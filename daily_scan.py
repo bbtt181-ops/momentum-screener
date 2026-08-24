@@ -66,6 +66,7 @@ from scanner import scan_universe  # noqa: E402
 import notify  # noqa: E402
 import adam_log  # noqa: E402
 import ibd_universe  # noqa: E402
+import scan_cache  # noqa: E402
 
 LOG_PATH = SCRIPT_DIR / "daily_scan.log"
 
@@ -112,6 +113,9 @@ def main() -> int:
     errored = [r for r in results if not r.get("ok")]
     log(f"Scan complete: {len(ok_results)} scored, {len(errored)} skipped/errored.")
 
+    scan_time = dt.datetime.now()
+    scan_cache.save_last_scan(results, scan_time, source="daily")
+
     qualifying = [r for r in ok_results if r.get("grade") in cfg.email_alert_grades]
     if qualifying:
         summary = ", ".join(f"{r['ticker']}({r['grade']})" for r in qualifying)
@@ -119,8 +123,20 @@ def main() -> int:
     else:
         log(f"0 results match alert grades {cfg.email_alert_grades}.")
 
+    # READY -- approaching Resistance but hasn't broken out yet, so it can't have earned an A+/A
+    # grade yet (Setup Score needs an actual breakout candle to cross the grade threshold -- see
+    # scoring/setup_score.py). Included as a separate "Watchlist" section in the same daily email
+    # so a heads-up before the breakout doesn't require opening the dashboard every day.
+    ready_watchlist = [r for r in ok_results if r.get("status") == "READY"]
+    ready_watchlist.sort(key=lambda r: r.get("distance_to_entry_pct") if r.get("distance_to_entry_pct") is not None else -1,
+                          reverse=True)
+    if ready_watchlist:
+        summary = ", ".join(r["ticker"] for r in ready_watchlist)
+        log(f"{len(ready_watchlist)} result(s) in READY status (Watchlist): {summary}")
+
     scan_stats = {"total": len(tickers), "scored": len(ok_results), "skipped": len(errored)}
-    sent, msg = notify.send_grade_alert_email(sender, password, recipient, qualifying, scan_stats=scan_stats)
+    sent, msg = notify.send_grade_alert_email(sender, password, recipient, qualifying, scan_stats=scan_stats,
+                                                watchlist_results=ready_watchlist)
     log(("Email sent: " if sent else "Email FAILED: ") + msg)
 
     adam_ok, adam_msg = adam_log.report_to_adam(scan_stats, qualifying, sent, msg)

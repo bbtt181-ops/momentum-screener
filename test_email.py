@@ -1,8 +1,8 @@
 """
 One-off manual test for the email-alert pipeline -- sends a single email with
 FAKE example results, so you can confirm SMTP login + the HTML template
-(image, quote, results table) actually work without waiting for a real A+/A
-setup to show up in a live scan.
+(image, quote, results table, and the READY/Watchlist section) actually work
+without waiting for a real A+/A or READY setup to show up in a live scan.
 
 Run:
     python test_email.py
@@ -37,12 +37,21 @@ FAKE_RESULTS = [
         "stop": 97.80,
         "stop_pct": 2.44,
     },
+]
+
+# READY setups (approaching Resistance, not broken out yet -- can't have an A+/A grade yet, see
+# scoring/setup_score.py) go through the separate `watchlist_results` argument, rendered as their
+# own section below the main A+/A table -- not through FAKE_RESULTS above.
+FAKE_WATCHLIST = [
     {
         "ticker": "DEMO",
-        "grade": "A",
-        "setup_score": 88,
+        "grade": "B",
+        "setup_score": 74.0,
         "status": "READY",
-        "ideal_entry": 45.30,
+        "price": 44.10,
+        "resistance": 45.30,
+        "ideal_entry": 45.39,
+        "distance_to_entry_pct": -0.0284,
         "stop": 43.10,
         "stop_pct": 4.86,
     },
@@ -59,9 +68,11 @@ def main() -> int:
               "ALERT_RECIPIENT_ADDRESS in .env -- see README.")
         return 1
 
-    print(f"Sending a TEST email (fake data: {', '.join(r['ticker'] for r in FAKE_RESULTS)}) "
+    all_tickers = [r["ticker"] for r in FAKE_RESULTS] + [r["ticker"] for r in FAKE_WATCHLIST]
+    print(f"Sending a TEST email (fake data: {', '.join(all_tickers)}) "
           f"from {sender} to {recipient} ...")
-    sent, msg = notify.send_grade_alert_email(sender, password, recipient, FAKE_RESULTS)
+    sent, msg = notify.send_grade_alert_email(sender, password, recipient, FAKE_RESULTS,
+                                                watchlist_results=FAKE_WATCHLIST)
     print(("SUCCESS: " if sent else "FAILED: ") + msg)
     return 0 if sent else 1
 

@@ -33,6 +33,15 @@ This opens the dashboard in your browser (usually http://localhost:8501). In the
 4. Click **SCAN**.
 5. Click any row in the results table to open the Stock Detail panel, chart, and WHY explanation.
 
+**The last scan is remembered.** Opening the dashboard in a new tab, refreshing the page, or coming back
+after Streamlit Cloud puts the app to sleep no longer shows an empty "click SCAN" screen -- it shows your
+last scan instead (marked "📦 showing the last saved scan" until you click SCAN again). This is written to
+a local file (`.cache/last_scan.pkl`, git-ignored) after every scan -- from this dashboard's own SCAN
+button, and, on a local run, from the scheduled `daily_scan.py` run too, so the dashboard also reflects
+last night's automated scan without you having to click SCAN yourself. This is a local file, not a
+database: it survives a page refresh or new tab on the same machine, but not a full redeploy (Streamlit
+Cloud clears its disk on redeploy) or a fresh clone of the repo.
+
 ## Data providers
 
 - **yfinance** (default): free, unofficial (scrapes Yahoo Finance). Good for trying the screener out.
@@ -84,6 +93,14 @@ matching ticker with its grade, score, status, ideal entry and stop.
 
 If secrets aren't configured yet, the sidebar shows a warning instead of failing silently.
 
+**Watchlist (READY) section**: every alert email also includes a separate section for any result whose
+**Status** is READY -- approaching Resistance but hasn't broken out yet -- regardless of grade. A stock in
+READY status essentially can't have an A+/A grade yet (Setup Score needs the actual breakout candle to
+score `breakout_quality`; see the Methodology tab), so without this section you'd only ever hear about a
+setup on the day it already broke out. A non-empty Watchlist is, on its own, enough to trigger an email
+even if the same SCAN found zero A+/A results. The same READY setups are also listed in full in the
+dashboard's **Watchlist (READY)** tab.
+
 ## Daily automatic scan (Windows Task Scheduler)
 
 This runs the full scan **once a day at a fixed local time on your own PC** -- no GitHub, no cloud
@@ -108,8 +125,10 @@ running, and emails you (using the same email-alert logic as the dashboard) if a
    python daily_scan.py
    ```
    This scans the full seed universe once and prints progress. Check `daily_scan.log` (created next to the
-   script) for a run history. If no A+/A setup is found that day, it logs that and exits without emailing --
-   that's expected, not a failure.
+   script) for a run history. Unlike the dashboard's SCAN button, this always sends one summary email at
+   the end of every run -- even when 0 results match your alert grades -- so a "nothing today" email still
+   confirms the scan actually ran the full universe. If it also finds any READY (Watchlist) setups, those
+   are included in that same email; see "Email alerts" above.
 
 **3. Register the Windows Scheduled Task** so it runs automatically every day at 23:20 (11:20 PM) local
    time -- open **Command Prompt** (not PowerShell) and run, adjusting the paths only if your project

@@ -7,7 +7,14 @@ Layout:
   Sidebar   -> Universe + all configurable parameters (spec section 29), data provider selection, SCAN button
   Tab 1     -> Scanner: results table (section 22), click a row for Stock Detail (23) + Chart (24) + WHY (25)
   Tab 2     -> A+ Setups summary (section 33)
-  Tab 3     -> Methodology (section 30) -- the exact formulas/thresholds currently configured
+  Tab 3     -> Watchlist (READY): results whose Status is READY (approaching Resistance, not broken out
+               yet) regardless of grade -- a heads-up before the breakout, separate from the A+/A grade
+               list since a pre-breakout stock can't score high enough on breakout_quality to reach A yet
+  Tab 4     -> Methodology (section 30) -- the exact formulas/thresholds currently configured
+
+The last scan (from this dashboard's own SCAN button, or from the local scheduled daily_scan.py run)
+is cached to disk via scan_cache.py, so reopening the dashboard in a new tab/session shows that last
+scan instead of an empty screen -- see main()'s startup block below.
 """
 
 from __future__ import annotations
@@ -21,6 +28,7 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 import notify
+import scan_cache
 from config import ScreenerConfig
 from data import universe as universe_mod
 from scanner import scan_universe
@@ -285,6 +293,20 @@ def main():
     st.caption("Fresh New Trend → First Leg → EMA Expansion → First Valid Consolidation → Breakout. "
                "Screener only -- no backtesting, no automated trading.")
 
+    # Restore the last scan from disk on a brand-new session (new tab, page refresh, or the app
+    # waking back up) -- without this, st.session_state starts empty every time and the dashboard
+    # shows an empty "click SCAN" screen even though a scan was already run recently (here, or by
+    # the scheduled daily_scan.py run). Runs once per session: a scan_clicked run below always
+    # overwrites "results" with a fresh one anyway, and later reruns of this same session already
+    # have "results" set, so this never clobbers a live in-session scan.
+    if "results" not in st.session_state:
+        cached = scan_cache.load_last_scan()
+        if cached:
+            st.session_state["results"] = cached["results"]
+            st.session_state["scan_time"] = cached["scan_time"]
+            st.session_state["results_source"] = cached.get("source", "unknown")
+            st.session_state["results_is_cached"] = True
+
     cfg = build_sidebar_config()
     tickers = build_ticker_universe()
 
@@ -301,12 +323,21 @@ def main():
 
             results = scan_universe(tickers, cfg, progress_callback=_progress)
             progress.empty()
+            scan_time = dt.datetime.now()
             st.session_state["results"] = results
-            st.session_state["scan_time"] = dt.datetime.now()
+            st.session_state["scan_time"] = scan_time
+            st.session_state["results_source"] = "manual"
+            st.session_state["results_is_cached"] = False
+            scan_cache.save_last_scan(results, scan_time, source="manual")
 
             if cfg.enable_email_alerts:
                 qualifying = [r for r in results if r.get("ok") and r.get("grade") in cfg.email_alert_grades]
-                if qualifying:
+                ready_watchlist = [r for r in results if r.get("ok") and r.get("status") == "READY"]
+                ready_watchlist.sort(key=lambda r: r.get("distance_to_entry_pct") if r.get("distance_to_entry_pct") is not None else -1,
+                                      reverse=True)
+                # A READY hit is, on its own, also worth emailing about -- not just A+/A grades --
+                # since the point is to get a heads-up before the breakout happens, not just after.
+                if qualifying or ready_watchlist:
                     try:
                         _sender = st.secrets["email"]["sender_address"]
                         _password = st.secrets["email"]["app_password"]
@@ -314,7 +345,8 @@ def main():
                     except Exception:
                         _sender = _password = _recipient = None
                     if _sender and _password and _recipient:
-                        sent, msg = notify.send_grade_alert_email(_sender, _password, _recipient, qualifying)
+                        sent, msg = notify.send_grade_alert_email(_sender, _password, _recipient, qualifying,
+                                                                    watchlist_results=ready_watchlist)
                         if sent:
                             st.sidebar.success(f"📧 {msg}")
                         else:
@@ -323,7 +355,8 @@ def main():
                         st.sidebar.warning("📧 Email alerts are on but [email] secrets aren't configured -- "
                                             "see README 'Email alerts' section.")
 
-    tab_scan, tab_top, tab_methodology = st.tabs(["Scanner", "A+ Setups (SCAN output)", "Methodology"])
+    tab_scan, tab_top, tab_watchlist, tab_methodology = st.tabs(
+        ["Scanner", "A+ Setups (SCAN output)", "Watchlist (READY)", "Methodology"])
 
     results = st.session_state.get("results")
 
@@ -333,8 +366,14 @@ def main():
         else:
             ok_results = [r for r in results if r.get("ok")]
             errored = [r for r in results if not r.get("ok")]
+            source = st.session_state.get("results_source")
+            source_label = {"manual": "manual SCAN", "daily": "automated daily scan"}.get(source, source or "")
+            cached_note = ""
+            if st.session_state.get("results_is_cached"):
+                cached_note = f" -- 📦 showing the last saved scan ({source_label}). Click **SCAN** for a fresh one."
             st.caption(f"Scanned {len(results)} tickers -- {len(ok_results)} scored, {len(errored)} skipped "
-                       f"(insufficient data / provider error). Last scan: {st.session_state.get('scan_time')}")
+                       f"(insufficient data / provider error). Last scan: {st.session_state.get('scan_time')}"
+                       f"{cached_note}")
 
             table = results_to_table(results)
 
@@ -386,6 +425,29 @@ def main():
                             f"Score: {r['setup_score']} ({r['grade']}) | Status: {r['status']}  \n"
                             f"Ideal Entry: ${r['ideal_entry']:.2f} | Stop: ${r['stop']:.2f} | "
                             f"Risk: {r['stop_pct']:.2f}%" if r['stop_pct'] else "")
+                st.divider()
+
+    with tab_watchlist:
+        if results is None:
+            st.info("Run a SCAN to see the Watchlist.")
+        else:
+            watch = [r for r in results if r.get("ok") and r["status"] == "READY"]
+            watch.sort(key=lambda r: r.get("distance_to_entry_pct") if r.get("distance_to_entry_pct") is not None else -1,
+                       reverse=True)
+            st.caption("Stocks in a valid, quality consolidation that are approaching Resistance but haven't "
+                       "broken out yet -- a heads-up before the breakout, not itself an A+/A grade "
+                       "(see Methodology tab for why Setup Score needs an actual breakout to cross 80).")
+            if not watch:
+                st.write("No READY setups in the current scan.")
+            for i, r in enumerate(watch, start=1):
+                dist_pct = r.get("distance_to_entry_pct")
+                dist_str = f"{dist_pct * 100:+.2f}%" if dist_pct is not None else "n/a"
+                resistance_str = f"${r['resistance']:.2f}" if r.get("resistance") else "n/a"
+                ideal_entry_str = f"${r['ideal_entry']:.2f}" if r.get("ideal_entry") else "n/a"
+                st.markdown(f"**{i}. {r['ticker']}**  \n"
+                            f"Score: {r['setup_score']} ({r['grade']}) | Price: ${r['price']:.2f}  \n"
+                            f"Resistance: {resistance_str} | Ideal Entry: {ideal_entry_str} | "
+                            f"Distance to Entry: {dist_str}")
                 st.divider()
 
     with tab_methodology:
