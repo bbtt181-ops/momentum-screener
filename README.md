@@ -101,14 +101,17 @@ setup on the day it already broke out. A non-empty Watchlist is, on its own, eno
 even if the same SCAN found zero A+/A results. The same READY setups are also listed in full in the
 dashboard's **Watchlist (READY)** tab.
 
-**Header image**: every email includes a quote-card header -- a real, different photo every time (fetched
-live from [Lorem Picsum](https://picsum.photos), free, no API key, backed by Unsplash's library, so it can
-be any subject anywhere in the world) with that send's Hebrew motivational line rendered on top in
-[Noto Sans Hebrew](https://fonts.google.com/noto/specimen/Noto+Sans+Hebrew) (bundled under
-`assets/fonts/`, SIL Open Font License -- see `assets/fonts/OFL.txt`). Fetching the photo needs internet
-access at send time; if that fails for any reason (offline, blocked, slow, non-200 response) it falls back
-to the original procedural gradient background instead (`imagegen.py`'s `_procedural_background()`), so a
-flaky network only ever makes that one email's image plainer, never blocks the send.
+**Header image**: every email includes a real, different photo every time (fetched live from
+[Lorem Picsum](https://picsum.photos), free, no API key, backed by Unsplash's library, so it can be any
+subject anywhere in the world). The quote itself is shown as plain text right below the image, not drawn
+onto it -- an earlier version tried rendering the Hebrew quote directly onto the photo and that turned out
+to be a real (and, on one real run, silently failing) point of failure, so it was simplified back to just
+a photo. Fetching the photo needs internet access at send time; if that fails for any reason (offline,
+blocked, slow, non-200 response) it falls back to a local procedural gradient background instead
+(`imagegen.py`'s `_procedural_background()`), so a flaky network only ever makes that one email's image
+plainer, never blocks the send. The quote itself is drawn from a broad pool of ~20 short, well-known
+empowering quotes spanning different eras, cultures and fields (science, business, civil rights, art,
+philosophy, sport, proverbs) -- see `MOTIVATIONAL_QUOTES` in `notify.py`.
 
 ## Daily automatic scan (Windows Task Scheduler)
 
