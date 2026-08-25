@@ -99,7 +99,15 @@ READY status essentially can't have an A+/A grade yet (Setup Score needs the act
 score `breakout_quality`; see the Methodology tab), so without this section you'd only ever hear about a
 setup on the day it already broke out. A non-empty Watchlist is, on its own, enough to trigger an email
 even if the same SCAN found zero A+/A results. The same READY setups are also listed in full in the
-dashboard's **Watchlist (READY)** tab.
+dashboard's **Watchlist (READY)** tab, where each ticker is a clickable link that opens its daily chart on
+TradingView (`https://www.tradingview.com/symbols/{TICKER}/`) in a new tab.
+
+**Reached-entry alert**: within the Watchlist, any READY result whose current price has reached or crossed
+above its Ideal Entry level (`distance_to_entry_pct >= 0`) is called out separately, at the top, in its own
+highlighted "🔔 reached entry" box -- both in the email (`_reached_entry_block_html` in `notify.py`) and in
+the subject line itself (e.g. "🔔 Momentum Screener: 2 READY setup(s) reached entry!"), so it's visible
+without opening the email. This is a heads-up that the price level you'd actually want to enter at has been
+reached, even on a day the candle doesn't (yet, or ever) qualify as a full A+/A BREAKOUT.
 
 **Header image**: every email includes a real, different photo every time (fetched live from
 [Lorem Picsum](https://picsum.photos), free, no API key, backed by Unsplash's library, so it can be any
@@ -142,16 +150,31 @@ running, and emails you (using the same email-alert logic as the dashboard) if a
    confirms the scan actually ran the full universe. If it also finds any READY (Watchlist) setups, those
    are included in that same email; see "Email alerts" above.
 
-**3. Register the Windows Scheduled Task** so it runs automatically every day at 23:20 (11:20 PM) local
+**3. Register the Windows Scheduled Task** so it runs automatically every day at 22:00 (10:00 PM) local
    time -- open **Command Prompt** (not PowerShell) and run, adjusting the paths only if your project
    folder isn't `C:\Users\PC\Desktop\momentum-screener`:
    ```bat
-   schtasks /create /tn "MomentumScreenerDailyScan" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\daily_scan.py\"" /sc DAILY /st 23:20
+   schtasks /create /tn "MomentumScreenerDailyScan" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\daily_scan.py\"" /sc DAILY /st 22:00
+   ```
+   If the task already exists (created at an earlier time), just update its run time instead of deleting and
+   recreating it:
+   ```bat
+   schtasks /change /tn "MomentumScreenerDailyScan" /st 22:00
    ```
    Because this uses your PC's **local time and timezone directly**, there's no UTC/DST conversion to get
-   wrong -- 23:20 always means 23:20 on your clock, summer or winter.
+   wrong -- 22:00 always means 22:00 on your clock, summer or winter.
 
-   Your computer needs to be **on and awake** at 23:20 for the task to run (it won't fire while asleep or
+   **Timing trade-off, by design choice:** US markets close at 16:00 ET, which is ~23:00 Israel time --
+   so 22:00 is about an hour *before* the close. The Breakout conditions (Close > Resistance, CLV, candle
+   body, etc.) are defined against the day's **final** Close. A scan at 22:00 uses yfinance's most recent
+   available candle, which on a day still in progress can still move before the real close -- so a
+   BREAKOUT status seen at 22:00 is provisional and could look different (or vanish) if you re-scanned
+   after 23:00. This was a deliberate choice (get the day's picture earlier, accept it may not be final)
+   rather than an oversight -- see the "תדירות ההרצה" methodology note in the project for the full
+   reasoning. If you ever want the fully-final end-of-day picture instead, change `/st 22:00` to
+   `/st 23:05` (or later) using the same `schtasks /change` command above.
+
+   Your computer needs to be **on and awake** at 22:00 for the task to run (it won't fire while asleep or
    shut down; Windows will *not* automatically run it late, though you can enable "Run task as soon as
    possible after a scheduled start is missed" in Task Scheduler's task properties if you want a fallback).
 
