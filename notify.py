@@ -148,6 +148,54 @@ def _watchlist_block_html(watchlist_results: list[dict], top_padding: int = 18) 
             </tr>"""
 
 
+def _reached_entry_rows(watchlist_results: list[dict]) -> list[dict]:
+    """
+    READY results whose current price is AT or ABOVE the Ideal Entry level
+    (distance_to_entry_pct >= 0 -- see scoring/entry_stop.py: positive means
+    price has reached/crossed above Ideal Entry, negative means it's still
+    below/approaching it). These are the ones worth a proactive nudge: the
+    price level the user actually wanted to enter at has been reached, even
+    if the candle doesn't (yet, or ever) qualify as a full A+/A BREAKOUT.
+    """
+    return [
+        r for r in watchlist_results
+        if r.get("distance_to_entry_pct") is not None and r["distance_to_entry_pct"] >= 0
+    ]
+
+
+def _reached_entry_block_html(reached_rows: list[dict]) -> str:
+    if not reached_rows:
+        return ""
+    rows_html = _format_watchlist_rows_html(reached_rows)
+    tickers_summary = ", ".join(r["ticker"] for r in reached_rows)
+    return f"""
+            <tr>
+              <td style="padding:18px 26px 6px 26px;">
+                <h3 style="margin:0 0 4px 0;color:#ffb020;font-size:16px;">
+                  🔔 {len(reached_rows)} מניה/ות ב-READY הגיעו לנקודת הכניסה האידיאלית!
+                </h3>
+                <p style="margin:0 0 12px 0;color:#a8a8bd;font-size:14px;">{tickers_summary}</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 26px 26px 26px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                       style="border-collapse:collapse;background-color:#2a1f10;border:1px solid #4a3010;border-radius:10px;overflow:hidden;">
+                  <tr style="background-color:#3a2a10;">
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Ticker</th>
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Grade</th>
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Score</th>
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Price</th>
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Resistance</th>
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Ideal Entry</th>
+                    <th style="padding:10px 14px;text-align:right;color:#ffd699;font-size:13px;">Distance</th>
+                  </tr>
+                  {rows_html}
+                </table>
+              </td>
+            </tr>"""
+
+
 def build_html_email(qualifying_results: list[dict], quote: str, image_cid: str | None,
                       scan_stats: dict | None = None, watchlist_results: list[dict] | None = None) -> str:
     image_html = (
@@ -203,7 +251,10 @@ def build_html_email(qualifying_results: list[dict], quote: str, image_cid: str 
     # When the watchlist section is the ONLY content (no qualifying results above it), it sits
     # right under the headline/intro paragraph, so it needs less top padding than when it's a
     # second section stacked below the qualifying-results table.
-    watchlist_html = _watchlist_block_html(watchlist_results, top_padding=18 if qualifying_results else 0)
+    reached_entry = _reached_entry_rows(watchlist_results)
+    reached_entry_html = _reached_entry_block_html(reached_entry)
+    watchlist_top_padding = 18 if (qualifying_results or reached_entry) else 0
+    watchlist_html = _watchlist_block_html(watchlist_results, top_padding=watchlist_top_padding)
 
     return f"""
 <html dir="rtl" lang="he">
@@ -223,7 +274,7 @@ def build_html_email(qualifying_results: list[dict], quote: str, image_cid: str 
                   {headline}
                 </h2>{body_block}
               </td>
-            </tr>{watchlist_html}
+            </tr>{reached_entry_html}{watchlist_html}
             <tr>
               <td style="padding:0 26px 24px 26px;">
                 <p style="margin:0;color:#6b6b80;font-size:12px;text-align:center;">
@@ -240,26 +291,38 @@ def build_html_email(qualifying_results: list[dict], quote: str, image_cid: str 
 """
 
 
+def _watchlist_lines_generic(rows: list[dict]) -> str:
+    lines = []
+    for r in rows:
+        resistance = r.get("resistance")
+        ideal_entry = r.get("ideal_entry")
+        dist = r.get("distance_to_entry_pct")
+        resistance_str = f"${resistance:.2f}" if resistance else "n/a"
+        ideal_entry_str = f"${ideal_entry:.2f}" if ideal_entry else "n/a"
+        dist_str = f"{dist * 100:+.2f}%" if dist is not None else "n/a"
+        lines.append(
+            f"{r['ticker']} -- Score {r['setup_score']} ({r['grade']}) -- Price ${r['price']:.2f} "
+            f"-- Resistance {resistance_str} -- Ideal Entry {ideal_entry_str} -- Distance {dist_str}"
+        )
+    return "\n".join(lines)
+
+
 def build_plain_text_email(qualifying_results: list[dict], quote: str, scan_stats: dict | None = None,
                             watchlist_results: list[dict] | None = None) -> str:
     watchlist_results = watchlist_results or []
+    reached_entry = _reached_entry_rows(watchlist_results)
+
+    def _reached_entry_section() -> str:
+        if not reached_entry:
+            return ""
+        return (f"\n\n🔔 {len(reached_entry)} READY setup(s) reached the Ideal Entry level:\n\n"
+                + _watchlist_lines_generic(reached_entry))
 
     def _watchlist_lines() -> str:
         if not watchlist_results:
             return ""
-        lines = []
-        for r in watchlist_results:
-            resistance = r.get("resistance")
-            ideal_entry = r.get("ideal_entry")
-            dist = r.get("distance_to_entry_pct")
-            resistance_str = f"${resistance:.2f}" if resistance else "n/a"
-            ideal_entry_str = f"${ideal_entry:.2f}" if ideal_entry else "n/a"
-            dist_str = f"{dist * 100:+.2f}%" if dist is not None else "n/a"
-            lines.append(
-                f"{r['ticker']} -- Score {r['setup_score']} ({r['grade']}) -- Price ${r['price']:.2f} "
-                f"-- Resistance {resistance_str} -- Ideal Entry {ideal_entry_str} -- Distance {dist_str}"
-            )
-        return f"\n\n📋 {len(watchlist_results)} READY (Watchlist) setup(s):\n\n" + "\n".join(lines)
+        return (f"\n\n📋 {len(watchlist_results)} READY (Watchlist) setup(s):\n\n"
+                + _watchlist_lines_generic(watchlist_results)) + _reached_entry_section()
 
     if not qualifying_results:
         stats_line = _scan_stats_line(scan_stats)
@@ -321,9 +384,13 @@ def send_grade_alert_email(sender: str, password: str, recipient: str,
         image_bytes = None
     image_cid = "header_image" if image_bytes else None
 
+    reached_entry = _reached_entry_rows(watchlist_results)
+
     msg = MIMEMultipart("related")
     if qualifying_results:
         msg["Subject"] = f"🚀 Momentum Screener: {len(qualifying_results)} setup(s) found today"
+    elif reached_entry:
+        msg["Subject"] = f"🔔 Momentum Screener: {len(reached_entry)} READY setup(s) reached entry!"
     elif watchlist_results:
         msg["Subject"] = f"📋 Momentum Screener: {len(watchlist_results)} READY setup(s) to watch"
     else:
