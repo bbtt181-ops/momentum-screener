@@ -299,11 +299,17 @@ def main():
     # -- no extra dependency. The trick: the invisible anchor div below sits in its own element
     # container; ":has()" finds that container, and "+" selects the very next element container
     # (the actual button's wrapper) to pin -- so only THIS button is repositioned, nothing else on
-    # the page. Needs a modern Chromium-based browser for :has() (true for Streamlit Cloud's viewers
-    # in practice); on an older browser the button still works, it just renders inline instead of
-    # floating.
+    # the page. Both "stElementContainer" (current Streamlit) and "element-container" (older
+    # Streamlit) test-ids are targeted since this attribute name has changed between versions --
+    # Streamlit Cloud is on "stElementContainer" as of 2026-08, verified live in the browser after
+    # the first version (targeting only "element-container") silently failed to match and the
+    # button rendered inline instead of floating. Needs a modern Chromium-based browser for :has()
+    # (true for Streamlit Cloud's viewers in practice); on an older browser the button still works,
+    # it just renders inline instead of floating.
     st.markdown("""
         <style>
+        div[data-testid="stElementContainer"]:has(#floating-scan-anchor)
+            + div[data-testid="stElementContainer"],
         div[data-testid="element-container"]:has(#floating-scan-anchor)
             + div[data-testid="element-container"] {
             position: fixed;
@@ -312,6 +318,8 @@ def main():
             z-index: 9999;
             width: auto;
         }
+        div[data-testid="stElementContainer"]:has(#floating-scan-anchor)
+            + div[data-testid="stElementContainer"] button,
         div[data-testid="element-container"]:has(#floating-scan-anchor)
             + div[data-testid="element-container"] button {
             border-radius: 999px;
