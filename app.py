@@ -312,11 +312,11 @@ def main():
             + div[data-testid="stElementContainer"],
         div[data-testid="element-container"]:has(#floating-scan-anchor)
             + div[data-testid="element-container"] {
-            position: fixed;
-            top: 4.2rem;
-            right: 2rem;
-            z-index: 9999;
-            width: auto;
+            position: fixed !important;
+            top: 4.2rem !important;
+            right: 2rem !important;
+            z-index: 9999 !important;
+            width: auto !important;
         }
         div[data-testid="stElementContainer"]:has(#floating-scan-anchor)
             + div[data-testid="stElementContainer"] button,
