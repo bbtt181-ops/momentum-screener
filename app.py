@@ -294,6 +294,34 @@ def main():
     st.caption("Fresh New Trend → First Leg → EMA Expansion → First Valid Consolidation → Breakout. "
                "Screener only -- no backtesting, no automated trading.")
 
+    # Floating "Scan" quick-action button, pinned to the top-right corner of the viewport so it's
+    # always one click away without scrolling back up to the sidebar. Pure CSS + a normal st.button
+    # -- no extra dependency. The trick: the invisible anchor div below sits in its own element
+    # container; ":has()" finds that container, and "+" selects the very next element container
+    # (the actual button's wrapper) to pin -- so only THIS button is repositioned, nothing else on
+    # the page. Needs a modern Chromium-based browser for :has() (true for Streamlit Cloud's viewers
+    # in practice); on an older browser the button still works, it just renders inline instead of
+    # floating.
+    st.markdown("""
+        <style>
+        div[data-testid="element-container"]:has(#floating-scan-anchor)
+            + div[data-testid="element-container"] {
+            position: fixed;
+            top: 4.2rem;
+            right: 2rem;
+            z-index: 9999;
+            width: auto;
+        }
+        div[data-testid="element-container"]:has(#floating-scan-anchor)
+            + div[data-testid="element-container"] button {
+            border-radius: 999px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        }
+        </style>
+        <div id="floating-scan-anchor"></div>
+    """, unsafe_allow_html=True)
+    floating_scan_clicked = st.button("🔍 Scan", key="floating_scan_button", type="primary")
+
     # Restore the last scan from disk on a brand-new session (new tab, page refresh, or the app
     # waking back up) -- without this, st.session_state starts empty every time and the dashboard
     # shows an empty "click SCAN" screen even though a scan was already run recently (here, or by
@@ -312,6 +340,7 @@ def main():
     tickers = build_ticker_universe()
 
     scan_clicked = st.sidebar.button("🔍 SCAN", type="primary", use_container_width=True)
+    scan_clicked = scan_clicked or floating_scan_clicked
 
     if scan_clicked:
         if not tickers:
