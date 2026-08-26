@@ -99,8 +99,11 @@ READY status essentially can't have an A+/A grade yet (Setup Score needs the act
 score `breakout_quality`; see the Methodology tab), so without this section you'd only ever hear about a
 setup on the day it already broke out. A non-empty Watchlist is, on its own, enough to trigger an email
 even if the same SCAN found zero A+/A results. The same READY setups are also listed in full in the
-dashboard's **Watchlist (READY)** tab, where each ticker is a clickable link that opens its daily chart on
-TradingView (`https://www.tradingview.com/symbols/{TICKER}/`) in a new tab.
+dashboard's **Watchlist (READY)** tab, where each ticker is a clickable link that opens straight into its
+daily chart on TradingView (`https://www.tradingview.com/chart/?symbol={TICKER}&interval=D`) in a new tab --
+the `/chart/` URL (rather than `/symbols/{TICKER}/`, which lands on a summary/overview page instead of the
+actual chart) opens the interactive chart app directly, with the daily interval pre-selected, and TradingView
+auto-resolves the plain ticker to its primary exchange without needing an explicit `EXCHANGE:` prefix.
 
 **Reached-entry alert**: within the Watchlist, any READY result whose current price has reached or crossed
 above its Ideal Entry level (`distance_to_entry_pct >= 0`) is called out separately, at the top, in its own
