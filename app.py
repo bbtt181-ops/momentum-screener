@@ -294,7 +294,7 @@ def main():
     st.caption("Fresh New Trend → First Leg → EMA Expansion → First Valid Consolidation → Breakout. "
                "Screener only -- no backtesting, no automated trading.")
 
-    # Floating "Scan" quick-action button, pinned to the top-right corner of the viewport so it's
+    # Floating "Scan" quick-action button, pinned to the top-left corner of the viewport so it's
     # always one click away without scrolling back up to the sidebar. Pure CSS + a normal st.button
     # -- no extra dependency. The trick: the invisible anchor div below sits in its own element
     # container; ":has()" finds that container, and "+" selects the very next element container
@@ -314,7 +314,7 @@ def main():
             + div[data-testid="element-container"] {
             position: fixed !important;
             top: 4.2rem !important;
-            right: 2rem !important;
+            left: 2rem !important;
             z-index: 9999 !important;
             width: auto !important;
         }
