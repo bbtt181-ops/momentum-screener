@@ -198,7 +198,7 @@ the scan actually *runs*. If the PC is off/asleep at the scheduled time, the Sch
 deleted, or the script crashes before it reaches the email step, there is otherwise **no signal anywhere**
 that anything went wrong -- silence just looks identical to "nothing to report."
 
-`watchdog.py` closes that gap: it's a second, much smaller Scheduled Task that runs ~20-25 minutes after the
+`scan_watchdog.py` closes that gap: it's a second, much smaller Scheduled Task that runs ~20-25 minutes after the
 main scan's start time and checks `daily_scan.log` for today's date. If there's no "Daily scan starting"
 line at all, or a scan started but never reached a successful "Email sent:" line, it sends its own short
 plain-text alert email (e.g. "⚠️ הסריקה האוטומטית לא רצה הלילה"). If the main scan ran and emailed
@@ -210,7 +210,7 @@ failure-detector.
 **Register it** (uses the same `.env` credentials as the main scan -- no separate setup needed) -- either
 run `setup_watchdog_task.bat` once, or from Command Prompt:
 ```bat
-schtasks /create /tn "MomentumScreenerWatchdog" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\watchdog.py\"" /sc DAILY /st 22:25
+schtasks /create /f /tn "MomentumScreenerWatchdog" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\scan_watchdog.py\"" /sc DAILY /st 22:25
 ```
 22:25 assumes the main scan is at 22:00 (a full ~280-ticker scan has historically taken 12-17 minutes, so 25
 minutes is a comfortable buffer). **If you ever change the main scan's time, update this one to match** (main
@@ -218,7 +218,7 @@ time + ~25 minutes):
 ```bat
 schtasks /change /tn "MomentumScreenerWatchdog" /st HH:MM
 ```
-Test it manually any time with `python watchdog.py` (from the activated venv) -- it logs its own checks to
+Test it manually any time with `python scan_watchdog.py` (from the activated venv) -- it logs its own checks to
 `watchdog.log` next to `daily_scan.log`.
 
 ## Report to Adam

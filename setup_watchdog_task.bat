@@ -1,7 +1,7 @@
 @echo off
 echo Creating "MomentumScreenerWatchdog" scheduled task (runs daily at 22:25,
 echo 25 minutes after the main scan's 22:00 start time)...
-schtasks /create /tn "MomentumScreenerWatchdog" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\watchdog.py\"" /sc DAILY /st 22:25
+schtasks /create /f /tn "MomentumScreenerWatchdog" /tr "\"C:\Users\PC\Desktop\momentum-screener\.venv\Scripts\python.exe\" \"C:\Users\PC\Desktop\momentum-screener\scan_watchdog.py\"" /sc DAILY /st 22:25
 echo.
 echo Done. Verifying the new task:
 schtasks /query /tn "MomentumScreenerWatchdog" /v /fo LIST | findstr /i "TaskName \"Start Time\" \"Next Run Time\""
