@@ -294,25 +294,24 @@ def main():
     st.caption("Fresh New Trend → First Leg → EMA Expansion → First Valid Consolidation → Breakout. "
                "Screener only -- no backtesting, no automated trading.")
 
-    # Floating "Scan" quick-action button, pinned to the top-left corner of the MAIN content area
-    # (i.e. just to the right of the sidebar) so it's always one click away without scrolling back
-    # up to the sidebar. Pure CSS + a normal st.button -- no extra dependency. The trick: the
-    # invisible anchor div below sits in its own element container; ":has()" finds that container,
-    # and "+" selects the very next element container (the actual button's wrapper) to pin -- so
-    # only THIS button is repositioned, nothing else on the page. Both "stElementContainer" (current
-    # Streamlit) and "element-container" (older Streamlit) test-ids are targeted since this
-    # attribute name has changed between versions -- Streamlit Cloud is on "stElementContainer" as
-    # of 2026-08, verified live in the browser after the first version (targeting only
-    # "element-container") silently failed to match and the button rendered inline instead of
-    # floating. "position: fixed" here is relative to the actual browser viewport (not just the
-    # main content column), so "left" has to clear the sidebar's width -- Streamlit's default
-    # sidebar is 300px wide, so "left" is offset past that (plus a small gap) rather than a plain
-    # "2rem" from the true left edge, which sat UNDER the sidebar and was invisible (verified live:
-    # position/left computed correctly, but elementFromPoint at that spot returned a sidebar div,
-    # not the button -- confirmed by a screenshot showing nothing there). If the user drags the
-    # sidebar wider than ~300px this offset would need bumping up to match. Needs a modern
-    # Chromium-based browser for :has() (true for Streamlit Cloud's viewers in practice); on an
-    # older browser the button still works, it just renders inline instead of floating.
+    # Floating "Scan" quick-action button, pinned to the top-RIGHT corner of the page so it's
+    # always one click away without scrolling back up to the sidebar. Pure CSS + a normal
+    # st.button -- no extra dependency. The trick: the invisible anchor div below sits in its own
+    # element container; ":has()" finds that container, and "+" selects the very next element
+    # container (the actual button's wrapper) to pin -- so only THIS button is repositioned,
+    # nothing else on the page. Both "stElementContainer" (current Streamlit) and
+    # "element-container" (older Streamlit) test-ids are targeted since this attribute name has
+    # changed between versions -- Streamlit Cloud is on "stElementContainer" as of 2026-08,
+    # verified live in the browser after the first version (targeting only "element-container")
+    # silently failed to match and the button rendered inline instead of floating. "position: fixed"
+    # here is relative to the actual browser viewport (not just the main content column). The
+    # button was previously pinned top-LEFT (past the sidebar, with a "calc(300px + 1.5rem)" left
+    # offset to clear the sidebar's width) -- moved back to top-right per user request on
+    # 2026-08-27. The right side needs no sidebar-clearance offset since the sidebar lives on the
+    # left; a plain "right: 2rem" is enough and was verified live (screenshot + elementFromPoint)
+    # the first time this button was built. Needs a modern Chromium-based browser for :has() (true
+    # for Streamlit Cloud's viewers in practice); on an older browser the button still works, it
+    # just renders inline instead of floating.
     st.markdown("""
         <style>
         div[data-testid="stElementContainer"]:has(#floating-scan-anchor)
@@ -321,7 +320,7 @@ def main():
             + div[data-testid="element-container"] {
             position: fixed !important;
             top: 4.2rem !important;
-            left: calc(300px + 1.5rem) !important;
+            right: 2rem !important;
             z-index: 9999 !important;
             width: auto !important;
         }
