@@ -30,9 +30,8 @@ This opens the dashboard in your browser (usually http://localhost:8501). In the
    see below).
 2. Set your universe filters (price, market cap, avg volume) and any pattern thresholds you want to change.
 3. Choose a ticker source: the bundled seed list, a pasted list, or a CSV upload.
-4. Click **SCAN** (in the sidebar), or the floating **🔍 Scan** button pinned to the top-left corner of
-   the main content area, just past the sidebar -- both trigger the exact same scan, so you don't need to
-   scroll back up to the sidebar.
+4. Click **SCAN** (in the sidebar), or the floating **🔍 Scan** button pinned to the top-right corner of
+   the page -- both trigger the exact same scan, so you don't need to scroll back up to the sidebar.
 5. Click any row in the results table to open the Stock Detail panel, chart, and WHY explanation.
 
 **The last scan is remembered.** Opening the dashboard in a new tab, refreshing the page, or coming back
