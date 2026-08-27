@@ -33,6 +33,7 @@ from config import ScreenerConfig
 from data import universe as universe_mod
 from scanner import scan_universe
 from trading_calculator_tab import render_trading_calculator
+from trading_calc_pro_tab import render_trading_calc_pro
 
 st.set_page_config(page_title="Momentum First-Leg Screener", layout="wide")
 
@@ -313,19 +314,6 @@ def main():
     # sidebar wider than ~300px this offset would need bumping up to match. Needs a modern
     # Chromium-based browser for :has() (true for Streamlit Cloud's viewers in practice); on an
     # older browser the button still works, it just renders inline instead of floating.
-    #
-    # Corner history (2026-08-27): briefly moved to top-RIGHT per user request, then moved back
-    # here to top-LEFT the same day because the right-side placement sat on top of the chart area
-    # and got in the way of reading it. Left it is.
-    #
-    # Mobile fix (2026-08-27, later): the desktop "left: calc(300px + 1.5rem)" offset assumes the
-    # sidebar is always reserving 300px of layout width -- true on desktop, but on a narrow/mobile
-    # viewport Streamlit collapses the sidebar into a hidden off-canvas drawer that reserves NO
-    # width at all. On a phone-width screen that pushed the button almost all the way to the right
-    # edge instead of the left (reported by the user: screenshot showed it top-right on a narrow/
-    # dark-themed view). Fixed with a max-width media query that drops back to a small flat offset
-    # from the true left edge once the sidebar is collapsed (Streamlit's own mobile breakpoint is
-    # 640px, matched here so the two rules hand off at the same point the sidebar itself collapses).
     st.markdown("""
         <style>
         div[data-testid="stElementContainer"]:has(#floating-scan-anchor)
@@ -344,14 +332,6 @@ def main():
             + div[data-testid="element-container"] button {
             border-radius: 999px;
             box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-        }
-        @media (max-width: 640px) {
-            div[data-testid="stElementContainer"]:has(#floating-scan-anchor)
-                + div[data-testid="stElementContainer"],
-            div[data-testid="element-container"]:has(#floating-scan-anchor)
-                + div[data-testid="element-container"] {
-                left: 1rem !important;
-            }
         }
         </style>
         <div id="floating-scan-anchor"></div>
@@ -421,8 +401,8 @@ def main():
                         st.sidebar.warning("📧 Email alerts are on but [email] secrets aren't configured -- "
                                             "see README 'Email alerts' section.")
 
-    tab_scan, tab_top, tab_watchlist, tab_calculator, tab_methodology = st.tabs(
-        ["Scanner", "A+ Setups (SCAN output)", "Watchlist (READY)", "מחשבון מסחר", "Methodology"])
+    tab_scan, tab_top, tab_watchlist, tab_calculator, tab_calc_pro, tab_methodology = st.tabs(
+        ["Scanner", "A+ Setups (SCAN output)", "Watchlist (READY)", "מחשבון מסחר", "מחשבון סוחר עלPRO", "Methodology"])
 
     results = st.session_state.get("results")
 
@@ -520,6 +500,9 @@ def main():
 
     with tab_calculator:
         render_trading_calculator(results)
+
+    with tab_calc_pro:
+        render_trading_calc_pro()
 
     with tab_methodology:
         render_methodology(cfg)
