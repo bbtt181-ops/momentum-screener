@@ -10,7 +10,8 @@ Layout:
   Tab 3     -> Watchlist (READY): results whose Status is READY (approaching Resistance, not broken out
                yet) regardless of grade -- a heads-up before the breakout, separate from the A+/A grade
                list since a pre-breakout stock can't score high enough on breakout_quality to reach A yet
-  Tab 4     -> Methodology (section 30) -- the exact formulas/thresholds currently configured
+  Tab 4     -> מחשבון סוחר על PRO
+  Tab 5     -> Methodology (section 30) -- the exact formulas/thresholds currently configured
 
 The last scan (from this dashboard's own SCAN button, or from the local scheduled daily_scan.py run)
 is cached to disk via scan_cache.py, so reopening the dashboard in a new tab/session shows that last
@@ -32,7 +33,6 @@ import scan_cache
 from config import ScreenerConfig
 from data import universe as universe_mod
 from scanner import scan_universe
-from trading_calculator_tab import render_trading_calculator
 from trading_calc_pro_tab import render_trading_calc_pro
 
 st.set_page_config(page_title="Momentum First-Leg Screener", layout="wide")
@@ -422,8 +422,8 @@ def main():
                         st.sidebar.warning("📧 Email alerts are on but [email] secrets aren't configured -- "
                                             "see README 'Email alerts' section.")
 
-    tab_scan, tab_top, tab_watchlist, tab_calculator, tab_calc_pro, tab_methodology = st.tabs(
-        ["Scanner", "A+ Setups (SCAN output)", "Watchlist (READY)", "מחשבון מסחר", "מחשבון סוחר עלPRO", "Methodology"])
+    tab_scan, tab_top, tab_watchlist, tab_calc_pro, tab_methodology = st.tabs(
+        ["Scanner", "A+ Setups (SCAN output)", "Watchlist (READY)", "מחשבון סוחר עלPRO", "Methodology"])
 
     results = st.session_state.get("results")
 
@@ -519,9 +519,6 @@ def main():
                             f"Distance to Entry: {dist_str}", unsafe_allow_html=True)
                 st.divider()
 
-    with tab_calculator:
-        render_trading_calculator(results)
-
     with tab_calc_pro:
         render_trading_calc_pro()
 
@@ -530,51 +527,51 @@ def main():
 
 
 def render_methodology(cfg: ScreenerConfig):
-    st.header("Methodology")
-    st.warning("First Leg, First Valid Consolidation, VCP, CML, Higher Low and Resistance are **not** "
-               "unambiguous concepts. Every score below is a transparent, configurable approximation -- "
-               "not a claim of 100% precision (spec section 30).")
+    st.header("מתודולוגיה")
+    st.warning("First Leg, First Valid Consolidation, VCP, CML, Higher Low ו-Resistance הם **לא** "
+               "מושגים חד-משמעיים. כל ציון להלן הוא אפרוקסימציה שקופה וניתנת לקונפיגורציה -- "
+               "לא טענה לדיוק של 100% (סעיף 30 במפרט).")
 
     st.markdown(f"""
-**First Leg Score** = weighted blend of Price-vs-EMA50, EMA50 slope, Higher-High/Higher-Low structure,
-Momentum, and Weekly Alignment. Current weights: `{cfg.first_leg_weights}`. Confirmed when score >=
+**First Leg Score** = שילוב משוקלל של Price-vs-EMA50, שיפוע EMA50, מבנה Higher-High/Higher-Low,
+Momentum, ו-Weekly Alignment. משקלים נוכחיים: `{cfg.first_leg_weights}`. ה-First Leg מאושר כאשר הציון >=
 `{cfg.first_leg_score_threshold}`.
 
-**First Valid Consolidation** = the first window after the First Leg (>= `{cfg.min_consolidation_days}`
-trading days) that touches EMA{cfg.ema_fast}/EMA{cfg.ema_mid} (tolerance `{cfg.ema_pullback_tolerance_pct:.2%}`)
-without a "meaningful" close below EMA{cfg.ema_mid} (tolerance `{cfg.ema20_close_violation_pct:.2%}`,
-max `{cfg.ema20_max_violation_days}` violation days tolerated). Once found, later consolidations for the
-same leg are not searched; if it breaks the pre-leg low, it's invalidated instead of replaced.
+**First Valid Consolidation** = החלון הראשון אחרי ה-First Leg (>= `{cfg.min_consolidation_days}`
+ימי מסחר) שנוגע ב-EMA{cfg.ema_fast}/EMA{cfg.ema_mid} (טולרנס `{cfg.ema_pullback_tolerance_pct:.2%}`)
+בלי close "משמעותי" מתחת ל-EMA{cfg.ema_mid} (טולרנס `{cfg.ema20_close_violation_pct:.2%}`,
+עד `{cfg.ema20_max_violation_days}` ימי חריגה מותרים). ברגע שנמצאה קונסולידציה כזו, לא ממשיכים
+לחפש קונסולידציות מאוחרות יותר לאותו Leg; אם היא שוברת את השפל שלפני ה-Leg -- היא נפסלת ולא מוחלפת.
 
-**VCP Score** = weighted blend of ATR/Range/Swing contraction, tightening (std-dev), and volume
-contraction within the consolidation window. Weights: `{cfg.vcp_weights}`.
+**VCP Score** = שילוב משוקלל של התכווצות ATR/Range/Swing, tightening (סטיית תקן), והתכווצות נפח
+בתוך חלון הקונסולידציה. משקלים: `{cfg.vcp_weights}`.
 
-**Resistance** = the pivot-high cluster (tolerance `{cfg.resistance_cluster_tolerance_pct:.2%}`) with the
-most touches inside the consolidation window -- not an old, irrelevant high.
+**Resistance** = אשכול ה-Pivot High (טולרנס `{cfg.resistance_cluster_tolerance_pct:.2%}`) עם הכי הרבה
+מגעים בתוך חלון הקונסולידציה -- לא High ישן ולא רלוונטי.
 
-**Breakout** requires, on the same day (no look-ahead): Close > Resistance, candle body larger than the
-prior day's, breakout range <= `{cfg.max_breakout_atr}` x ATR20, CLV >= `{cfg.clv_threshold}`, and upper
-wick <= `{cfg.upper_wick_max_pct:.0%}` of the day's range.
+**Breakout** נדרש, באותו יום (ללא מידע עתידי): Close > Resistance, גוף הנר גדול מזה של אתמול,
+טווח הפריצה <= `{cfg.max_breakout_atr}` × ATR20, CLV >= `{cfg.clv_threshold}`, ו-Upper Wick
+<= `{cfg.upper_wick_max_pct:.0%}` מטווח היום.
 
-**Ideal Entry** = Resistance x (1 + `{cfg.entry_buffer_pct:.2%}`). Beyond `{cfg.max_extension_atr}` x ATR20
-past that level, status becomes EXTENDED — DO NOT CHASE.
+**Ideal Entry** = Resistance × (1 + `{cfg.entry_buffer_pct:.2%}`). מעבר ל-`{cfg.max_extension_atr}` × ATR20
+מעל הרמה הזו, הסטטוס הופך ל-EXTENDED — DO NOT CHASE.
 
-**Recommended Stop** = Higher Low (preferred) -> Consolidation Low -> Resistance-based fallback, minus an
-ATR buffer (`{cfg.atr_stop_multiplier}` x ATR20). Never moved closer to price to "fit" a trade. If the
-resulting risk exceeds `{cfg.max_stop_percent}`%, the setup is flagged DO NOT TRADE — STOP TOO WIDE rather
-than the stop being tightened artificially.
+**Recommended Stop** = Higher Low (מועדף) → Consolidation Low → fallback מבוסס Resistance, פחות buffer
+של ATR (`{cfg.atr_stop_multiplier}` × ATR20). הסטופ לעולם לא מוזז קרוב יותר למחיר כדי "להתאים" לעסקה.
+אם הסיכון שנובע מכך עולה על `{cfg.max_stop_percent}`%, הסטאפ מסומן כ-DO NOT TRADE — STOP TOO WIDE
+במקום להדק את הסטופ באופן מלאכותי.
 
-**Setup Score** = weighted blend of every component above. Weights: `{cfg.setup_score_weights}`.
-Grades: A+ >= {cfg.grade_bands['A+']}, A >= {cfg.grade_bands['A']}, B >= {cfg.grade_bands['B']},
-C >= {cfg.grade_bands['C']}, else REJECT.
+**Setup Score** = שילוב משוקלל של כל הרכיבים לעיל. משקלים: `{cfg.setup_score_weights}`.
+דירוגים: A+ >= {cfg.grade_bands['A+']}, A >= {cfg.grade_bands['A']}, B >= {cfg.grade_bands['B']},
+C >= {cfg.grade_bands['C']}, אחרת REJECT.
 """)
 
-    with st.expander("Data source & universe notes"):
+    with st.expander("הערות על מקור הנתונים וה-Universe"):
         st.write(
-            "Default provider is yfinance (free, unofficial) for prototyping; EODHD is recommended for "
-            "regular use (paid, higher reliability, 100k calls/day). The bundled ticker list is a seed of "
-            "liquid, well-known US names -- not a claim of full market coverage. Swap in your own list "
-            "(paste or CSV) or a full listings pull from your data provider for complete coverage."
+            "ספק ברירת המחדל הוא yfinance (חינמי, לא רשמי) לצורך פרוטוטייפ; EODHD מומלץ לשימוש "
+            "שוטף (בתשלום, אמינות גבוהה יותר, 100 אלף קריאות ביום). רשימת הטיקרים המובנית היא "
+            "רשימת seed של שמות אמריקאיים נזילים ומוכרים -- לא טענה לכיסוי מלא של השוק. אפשר להחליף "
+            "אותה ברשימה שלך (הדבקה או קובץ CSV) או במשיכה מלאה מספק הנתונים לכיסוי מלא."
         )
 
 
