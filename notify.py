@@ -414,10 +414,30 @@ def send_grade_alert_email(sender: str, password: str, recipient: str,
         msg.attach(img)
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-            server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, [recipient], msg.as_string())
+        _smtp_send(sender, password, recipient, msg.as_string())
         return True, f"Email sent to {recipient}."
     except Exception as e:  # noqa: BLE001
         return False, f"Email failed: {e}"
+
+
+def _smtp_send(sender: str, password: str, recipient: str, raw: str) -> None:
+    """Send via STARTTLS on 587, falling back to implicit SSL on 465 (some
+    networks, e.g. cloud CI runners, drop the 587 connection)."""
+    errors = []
+    for port in (SMTP_PORT, 465):
+        try:
+            if port == 465:
+                server = smtplib.SMTP_SSL(SMTP_HOST, port, timeout=20)
+            else:
+                server = smtplib.SMTP(SMTP_HOST, port, timeout=20)
+            with server:
+                if port != 465:
+                    server.starttls()
+                server.login(sender, password)
+                server.sendmail(sender, [recipient], raw)
+            return
+        except smtplib.SMTPAuthenticationError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"port {port}: {e!r}")
+    raise RuntimeError("; ".join(errors))

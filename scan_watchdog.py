@@ -85,14 +85,22 @@ def _send_alert(sender: str, password: str, recipient: str, subject: str, body: 
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = recipient
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
-            server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, [recipient], msg.as_string())
-        return True, f"Alert sent to {recipient}."
-    except Exception as e:  # noqa: BLE001 - the watchdog itself must never crash uncaught
-        return False, f"Alert send failed: {e}"
+    errors = []
+    for port in (SMTP_PORT, 465):  # 465 = implicit-SSL fallback if 587 is dropped
+        try:
+            if port == 465:
+                server = smtplib.SMTP_SSL(SMTP_HOST, port, timeout=20)
+            else:
+                server = smtplib.SMTP(SMTP_HOST, port, timeout=20)
+            with server:
+                if port != 465:
+                    server.starttls()
+                server.login(sender, password)
+                server.sendmail(sender, [recipient], msg.as_string())
+            return True, f"Alert sent to {recipient}."
+        except Exception as e:  # noqa: BLE001 - the watchdog itself must never crash uncaught
+            errors.append(f"port {port}: {e!r}")
+    return False, "Alert send failed: " + "; ".join(errors)
 
 
 def main() -> int:
