@@ -39,6 +39,7 @@ from email.mime.image import MIMEImage
 from email.mime.text import MIMEText
 
 import imagegen
+import mail_relay
 
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
@@ -421,8 +422,11 @@ def send_grade_alert_email(sender: str, password: str, recipient: str,
 
 
 def _smtp_send(sender: str, password: str, recipient: str, raw: str) -> None:
-    """Send via STARTTLS on 587, falling back to implicit SSL on 465 (some
-    networks, e.g. cloud CI runners, drop the 587 connection)."""
+    """Send via the HTTPS relay when configured (cloud runs, where SMTP is
+    blocked); otherwise STARTTLS on 587, falling back to implicit SSL on 465."""
+    if mail_relay.is_configured():
+        mail_relay.send_raw(raw)
+        return
     errors = []
     for port in (SMTP_PORT, 465):
         try:

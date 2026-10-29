@@ -34,6 +34,9 @@ jobs:
       GMAIL_SENDER_ADDRESS: ${{ secrets.GMAIL_SENDER_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
       ALERT_RECIPIENT_ADDRESS: ${{ secrets.ALERT_RECIPIENT_ADDRESS }}
+      # Runners can't reach Gmail SMTP, so mail goes out via gas/mail_relay.gs.
+      MAIL_RELAY_URL: ${{ secrets.MAIL_RELAY_URL }}
+      MAIL_RELAY_TOKEN: ${{ secrets.MAIL_RELAY_TOKEN }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Check Israel time

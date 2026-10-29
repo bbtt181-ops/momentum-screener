@@ -140,6 +140,10 @@ short alert with a link to the run's log (GitHub also emails the repo owner abou
    `GMAIL_SENDER_ADDRESS`, `GMAIL_APP_PASSWORD`, `ALERT_RECIPIENT_ADDRESS` (same values as `.env`).
    Optional: `ADAM_SERVICE_ACCOUNT_JSON` = the full contents of `adam-service-account.json` (Adam log +
    live IBD50 list; skipped quietly if missing).
+   GitHub's runners can't reach Gmail SMTP (both 587 and 465 are dropped), so cloud runs send mail through a
+   small Google Apps Script relay: create a project at script.google.com from `gas/mail_relay.gs`, set its
+   `TOKEN`, enable the Gmail API service, deploy it as a Web app (Execute as: Me, Access: Anyone), then add
+   secrets `MAIL_RELAY_URL` (the /exec URL) and `MAIL_RELAY_TOKEN` (same value as `TOKEN`).
 2. The workflow file must be on the default branch (`main`) for the schedule to fire.
 3. Test once: Actions tab -> "Daily scan" -> Run workflow.
 4. On the PC, run `remove_local_schedule.bat` once to delete the old `MomentumScreenerDailyScan` and

@@ -55,6 +55,8 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from dotenv import load_dotenv  # noqa: E402
 
+import mail_relay  # noqa: E402
+
 load_dotenv(SCRIPT_DIR / ".env")
 
 LOG_PATH = SCRIPT_DIR / "daily_scan.log"
@@ -85,6 +87,12 @@ def _send_alert(sender: str, password: str, recipient: str, subject: str, body: 
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = recipient
+    if mail_relay.is_configured():
+        try:
+            mail_relay.send_raw(msg.as_string())
+            return True, f"Alert sent to {recipient} via relay."
+        except Exception as e:  # noqa: BLE001
+            return False, f"Alert send failed (relay): {e}"
     errors = []
     for port in (SMTP_PORT, 465):  # 465 = implicit-SSL fallback if 587 is dropped
         try:
