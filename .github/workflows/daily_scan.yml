@@ -1,0 +1,96 @@
+# Runs daily_scan.py in the cloud (GitHub Actions) at 22:00 Israel time,
+# Monday-Friday. Replaces the local Windows Scheduled Tasks
+# "MomentumScreenerDailyScan" and "MomentumScreenerWatchdog".
+#
+# GitHub cron is UTC-only, so there are two entries -- 19:00 UTC (= 22:00
+# in Israel summer time, UTC+3) and 20:00 UTC (= 22:00 in Israel winter
+# time, UTC+2) -- and the "Check Israel time" step lets only the one that
+# matches today's offset continue. Manual runs (Run workflow button) always
+# go ahead.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   GMAIL_SENDER_ADDRESS, GMAIL_APP_PASSWORD, ALERT_RECIPIENT_ADDRESS
+# Optional:
+#   ADAM_SERVICE_ACCOUNT_JSON  -- full contents of adam-service-account.json
+#                                 (Adam log + live IBD50 list; skipped if unset)
+
+name: Daily scan
+
+on:
+  schedule:
+    - cron: "0 19 * * 1-5"
+    - cron: "0 20 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GMAIL_SENDER_ADDRESS: ${{ secrets.GMAIL_SENDER_ADDRESS }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      ALERT_RECIPIENT_ADDRESS: ${{ secrets.ALERT_RECIPIENT_ADDRESS }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Check Israel time
+        id: gate
+        run: |
+          offset=$(TZ=Asia/Jerusalem date +%z)
+          echo "Israel UTC offset today: $offset, trigger: '${{ github.event.schedule }}'"
+          run=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ "$offset" = "+0300" ] && [ "${{ github.event.schedule }}" != "0 19 * * 1-5" ]; then run=false; fi
+            if [ "$offset" = "+0200" ] && [ "${{ github.event.schedule }}" != "0 20 * * 1-5" ]; then run=false; fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        if: steps.gate.outputs.run == 'true'
+        env:
+          ADAM_SERVICE_ACCOUNT_JSON: ${{ secrets.ADAM_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$ADAM_SERVICE_ACCOUNT_JSON" ]; then
+            printf '%s' "$ADAM_SERVICE_ACCOUNT_JSON" > adam-service-account.json
+          fi
+
+      - name: Run daily scan
+        if: steps.gate.outputs.run == 'true'
+        env:
+          TZ: Asia/Jerusalem
+        run: python daily_scan.py
+
+      # Same role the local watchdog task had: if the scan crashed or the
+      # summary email failed, send a short plain-text alert.
+      - name: Watchdog alert on failure
+        if: failure() && steps.gate.outputs.run == 'true'
+        env:
+          TZ: Asia/Jerusalem
+        run: python scan_watchdog.py
+
+      - name: Upload log
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-scan-log
+          path: |
+            daily_scan.log
+            watchdog.log
+          if-no-files-found: ignore
+          retention-days: 14
