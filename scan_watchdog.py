@@ -136,6 +136,16 @@ def main() -> int:
             "בדוק את daily_scan.log במלואו כדי להבין איפה זה נעצר."
         )
 
+    run_url = os.environ.get("RUN_URL")
+    if run_url:
+        # Running inside the GitHub Actions workflow, not the local Task Scheduler.
+        subject = "⚠️ Momentum Screener: הסריקה בענן נכשלה הלילה"
+        body = (
+            f"הסריקה היומית ב-GitHub Actions ({now_str}) לא הסתיימה בשליחת מייל.\n\n"
+            + (f"פרט מהלוג: {email_failed_line}\n\n" if email_failed_line else "")
+            + f"הלוג המלא של הריצה:\n{run_url}"
+        )
+
     ok, msg = _send_alert(sender, password, recipient, subject, body)
     log(("Watchdog alert sent: " if ok else "Watchdog alert FAILED: ") + msg)
     return 0 if ok else 2

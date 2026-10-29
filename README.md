@@ -126,7 +126,32 @@ plainer, never blocks the send. The quote itself is drawn from a broad pool of ~
 empowering quotes spanning different eras, cultures and fields (science, business, civil rights, art,
 philosophy, sport, proverbs) -- see `MOTIVATIONAL_QUOTES` in `notify.py`.
 
-## Daily automatic scan (Windows Task Scheduler)
+## Daily automatic scan in the cloud (GitHub Actions) -- current setup
+
+The daily scan runs on GitHub Actions (`.github/workflows/daily_scan.yml`) at **22:00 Israel time,
+Monday-Friday**, so the PC no longer needs to be on. GitHub cron is UTC-only, so the workflow has two
+triggers (19:00 and 20:00 UTC) and only the one matching Israel's current offset (summer/winter) runs the
+scan. If the scan crashes or the summary email fails, a final step runs `scan_watchdog.py`, which emails a
+short alert with a link to the run's log (GitHub also emails the repo owner about failed runs). Each run's
+`daily_scan.log` is kept as a downloadable artifact for 14 days.
+
+**One-time setup:**
+1. Repo -> Settings -> Secrets and variables -> Actions -> New repository secret, add:
+   `GMAIL_SENDER_ADDRESS`, `GMAIL_APP_PASSWORD`, `ALERT_RECIPIENT_ADDRESS` (same values as `.env`).
+   Optional: `ADAM_SERVICE_ACCOUNT_JSON` = the full contents of `adam-service-account.json` (Adam log +
+   live IBD50 list; skipped quietly if missing).
+2. The workflow file must be on the default branch (`main`) for the schedule to fire.
+3. Test once: Actions tab -> "Daily scan" -> Run workflow.
+4. On the PC, run `remove_local_schedule.bat` once to delete the old `MomentumScreenerDailyScan` and
+   `MomentumScreenerWatchdog` Scheduled Tasks, so the scan doesn't run twice and the old watchdog stops
+   sending "didn't run" alerts.
+
+The cloud run doesn't update the local `.cache/last_scan.pkl`, so the dashboard shows the last scan made
+from the dashboard itself.
+
+The Windows Task Scheduler instructions below are kept for reference only (no longer in use).
+
+## Daily automatic scan (Windows Task Scheduler) -- old, replaced by the cloud run above
 
 This runs the full scan **once a day at a fixed local time on your own PC** -- no GitHub, no cloud
 automation. It uses `daily_scan.py`, a standalone version of the scan that doesn't need Streamlit
