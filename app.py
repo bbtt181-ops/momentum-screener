@@ -511,7 +511,7 @@ def main():
                 dist_str = f"{dist_pct * 100:+.2f}%" if dist_pct is not None else "n/a"
                 resistance_str = f"${r['resistance']:.2f}" if r.get("resistance") else "n/a"
                 ideal_entry_str = f"${r['ideal_entry']:.2f}" if r.get("ideal_entry") else "n/a"
-                tv_url = f"https://www.tradingview.com/chart/?symbol={r['ticker']}&interval=D"
+                tv_url = f"https://il.tradingview.com/chart/?symbol={r['ticker']}&interval=D"
                 st.markdown(f"**{i}.** <a href=\"{tv_url}\" target=\"_blank\" rel=\"noopener\" "
                             f"style=\"font-weight:700;font-size:1.05em;text-decoration:none;\">{r['ticker']}</a>  \n"
                             f"Score: {r['setup_score']} ({r['grade']}) | Price: ${r['price']:.2f}  \n"
