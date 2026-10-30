@@ -102,7 +102,9 @@ score `breakout_quality`; see the Methodology tab), so without this section you'
 setup on the day it already broke out. A non-empty Watchlist is, on its own, enough to trigger an email
 even if the same SCAN found zero A+/A results. The same READY setups are also listed in full in the
 dashboard's **Watchlist (READY)** tab, where each ticker is a clickable link that opens straight into its
-daily chart on TradingView (`https://www.tradingview.com/chart/?symbol={TICKER}&interval=D`) in a new tab --
+daily chart on TradingView (`https://il.tradingview.com/chart/?symbol={TICKER}&interval=D`) in a new tab -- the
+`il.` subdomain is deliberate: on Android the TradingView app intercepts `www.tradingview.com` links and
+opens the last-viewed chart instead of the ticker, while `il.` links open in the browser on the right chart --
 the `/chart/` URL (rather than `/symbols/{TICKER}/`, which lands on a summary/overview page instead of the
 actual chart) opens the interactive chart app directly, with the daily interval pre-selected, and TradingView
 auto-resolves the plain ticker to its primary exchange without needing an explicit `EXCHANGE:` prefix.
