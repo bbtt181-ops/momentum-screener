@@ -2,9 +2,10 @@
 # Monday-Friday. Replaces the local Windows Scheduled Tasks
 # "MomentumScreenerDailyScan" and "MomentumScreenerWatchdog".
 #
-# GitHub cron is UTC-only, so there are two entries -- 19:00 UTC (= 22:00
-# in Israel summer time, UTC+3) and 20:00 UTC (= 22:00 in Israel winter
-# time, UTC+2) -- and the "Check Israel time" step lets only the one that
+# GitHub cron is UTC-only, so there are two entries -- 19:07 UTC (= 22:07
+# in Israel summer time, UTC+3) and 20:07 UTC (= 22:07 in Israel winter
+# time, UTC+2). Minute 7, not 0: top-of-the-hour schedules are the most
+# delayed on GitHub (the first scheduled run started 3h20m late) -- and the "Check Israel time" step lets only the one that
 # matches today's offset continue. Manual runs (Run workflow button) always
 # go ahead.
 #
@@ -18,8 +19,8 @@ name: Daily scan
 
 on:
   schedule:
-    - cron: "0 19 * * 1-5"
-    - cron: "0 20 * * 1-5"
+    - cron: "7 19 * * 1-5"
+    - cron: "7 20 * * 1-5"
   workflow_dispatch:
 
 concurrency:
@@ -46,8 +47,8 @@ jobs:
           echo "Israel UTC offset today: $offset, trigger: '${{ github.event.schedule }}'"
           run=true
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "$offset" = "+0300" ] && [ "${{ github.event.schedule }}" != "0 19 * * 1-5" ]; then run=false; fi
-            if [ "$offset" = "+0200" ] && [ "${{ github.event.schedule }}" != "0 20 * * 1-5" ]; then run=false; fi
+            if [ "$offset" = "+0300" ] && [ "${{ github.event.schedule }}" != "7 19 * * 1-5" ]; then run=false; fi
+            if [ "$offset" = "+0200" ] && [ "${{ github.event.schedule }}" != "7 20 * * 1-5" ]; then run=false; fi
           fi
           echo "run=$run" >> "$GITHUB_OUTPUT"
 
